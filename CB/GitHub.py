@@ -81,6 +81,8 @@ class GitHubAddon:
             targetflavor = 'mainline'
         elif self.clientType == 'mop':
             targetflavor = 'mists'
+        elif self.clientType == 'bc':
+            targetflavor = 'bcc'
         else:
             targetflavor = self.clientType
         for release in self.metadata['releases']:
@@ -109,6 +111,7 @@ class GitHubAddon:
         latest = None
         latestclassic = None
         latestmop = None
+        latestbc = None
         for release in self.payloads[self.releaseDepth]['assets']:
             if release['name'] and release['name'].endswith('.zip') and '-nolib' not in release['name'] \
                     and release['content_type'] in ['application/x-zip-compressed', 'application/zip', 'raw']:
@@ -119,14 +122,19 @@ class GitHubAddon:
                     latestclassic = release['url']
                 elif not latestmop and release['name'].endswith('-mists.zip'):
                     latestmop = release['url']
+                elif not latestbc and release['name'].endswith('-bcc.zip'):
+                    latestbc = release['url']
         if (self.clientType == 'retail' and latest) \
                 or (self.clientType == 'classic' and latest and not latestclassic) \
-                or (self.clientType == 'mop' and latest and not latestmop):
+                or (self.clientType == 'mop' and latest and not latestmop) \
+                or (self.clientType == 'bc' and latest and not latestbc):
             self.downloadUrl = latest
         elif self.clientType == 'classic' and latestclassic:
             self.downloadUrl = latestclassic
         elif self.clientType == 'mop' and latestmop:
             self.downloadUrl = latestmop
+        elif self.clientType == 'bc' and latestbc:
+            self.downloadUrl = latestbc
         else:
             self.releaseDepth += 1
             self.parse()
