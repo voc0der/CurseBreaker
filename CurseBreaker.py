@@ -64,6 +64,29 @@ class TUI:
         self.os = platform.system()
         install()
 
+
+    def _detect_local_addon_version(self):
+        """Return local WoW Interface version (e.g. '11507') if available.
+
+        WoW writes this into WTF/Config.wtf as SET lastAddonVersion "<ui>".
+        We use it to keep CurseBreaker aligned when upstream metadata is ahead of your client.
+        """
+        # Allow manual override (handy for testing / edge cases)
+        env = os.environ.get('CURSEBREAKER_UIVERSION')
+        if env and env.isdigit():
+            return env
+
+        cfg = Path('WTF/Config.wtf')
+        if not cfg.is_file():
+            return None
+        try:
+            data = cfg.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            return None
+
+        m = re.search(r'^\s*SET\s+lastAddonVersion\s+\"?(\d+)\"?\s*$', data, flags=re.M)
+        return m.group(1) if m else None
+
     def start(self):  # sourcery skip: low-code-quality
         # Check if headless mode was requested
         if len(sys.argv) == 2 and sys.argv[1].lower() == 'headless':
@@ -82,6 +105,10 @@ class TUI:
             flavor = os.environ.get('CURSEBREAKER_FLAVOR')
         else:
             flavor = os.path.basename(os.getcwd())
+
+        # Local UI version (e.g. 11507). Useful when upstream metadata already moved to a newer patch.
+        local_ui = self._detect_local_addon_version()
+
         if flavor in {'_retail_', '_ptr_', '_ptr2_', '_beta_', '_xptr_'}:
             self.core.clientType = 'retail'
         elif flavor in {'_classic_', '_classic_ptr_', '_classic_beta_'}:
@@ -91,10 +118,24 @@ class TUI:
             self.core.clientType = 'classic'
             set_terminal_title(f'CurseBreaker v{__version__} - Classic')
         elif flavor in {'_anniversary_'}:
-            self.core.clientType = 'bc'
+            # Anniversary is currently Vanilla (Interface 115xx). When/if it transitions to TBC (Interface 205xx+),
+            # automatically switch to BC mode so the correct addon packages are selected.
+            if local_ui and local_ui.isdigit() and int(local_ui) >= 20000:
+                self.core.clientType = 'bc'
+            else:
+                self.core.clientType = 'classic'
             set_terminal_title(f'CurseBreaker v{__version__} - Anniversary')
         else:
             self.handle_shutdown('[bold red]This client release is currently unsupported by CurseBreaker.[/bold red]\n')
+
+        # Keep master-config "CurrentVersion" aligned with the *local* client when we can detect it.
+        # This prevents false [!] markers and improves patch-specific package selection.
+        try:
+            if local_ui and self.core.clientType in self.core.masterConfig.get('ClientTypes', {}):
+                self.core.masterConfig['ClientTypes'][self.core.clientType]['CurrentVersion'] = local_ui
+        except Exception:
+            pass
+
         # Check if client have write access
         try:
             with open('PermissionTest', 'w') as _:
