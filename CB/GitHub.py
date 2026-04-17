@@ -69,8 +69,11 @@ class GitHubAddon:
                 if release['node_id'] in self.packagerCache:
                     self.metadata = self.packagerCache[release['node_id']]
                 else:
-                    self.metadata = self.http.get(release['url'], headers={'Accept': 'application/octet-stream'},
-                                                  auth=APIAuth('Bearer', self.apiKey)).json()
+                    try:
+                        self.metadata = self.http.get(release['url'], headers={'Accept': 'application/octet-stream'},
+                                                      auth=APIAuth('Bearer', self.apiKey)).json()
+                    except Exception:
+                        self.metadata = None
                 break
         else:
             self.metadata = None
