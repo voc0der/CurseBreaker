@@ -81,24 +81,27 @@ class GitHubAddon:
     def get_latest_package(self):
         targetfile = None
         if self.clientType == 'retail':
-            targetflavor = 'mainline'
+            targetflavors = ['mainline']
         elif self.clientType == 'mop':
-            targetflavor = 'mists'
+            targetflavors = ['mists']
         elif self.clientType == 'bc':
-            targetflavor = 'bcc'
+            targetflavors = ['bcc', 'classic']
         else:
-            targetflavor = self.clientType
-        for release in self.metadata['releases']:
-            if not release['nolib']:
-                for flavor in release['metadata']:
-                    if flavor['flavor'] == targetflavor:
-                        targetfile = release['filename']
-                        if 'name' in release:
-                            self.name = release['name']
-                            self.currentVersion = release['version']
+            targetflavors = [self.clientType]
+        for targetflavor in targetflavors:
+            for release in self.metadata['releases']:
+                if not release['nolib']:
+                    for flavor in release['metadata']:
+                        if flavor['flavor'] == targetflavor:
+                            targetfile = release['filename']
+                            if 'name' in release:
+                                self.name = release['name']
+                                self.currentVersion = release['version']
+                            break
+                    if targetfile:
                         break
-                if targetfile:
-                    break
+            if targetfile:
+                break
         if not targetfile:
             self.releaseDepth += 1
             self.parse()
@@ -138,6 +141,8 @@ class GitHubAddon:
             self.downloadUrl = latestmop
         elif self.clientType == 'bc' and latestbc:
             self.downloadUrl = latestbc
+        elif self.clientType == 'bc' and latestclassic:
+            self.downloadUrl = latestclassic
         else:
             self.releaseDepth += 1
             self.parse()
